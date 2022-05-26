@@ -569,7 +569,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
         json_object_add_value_uint(root, "Active Threshold D",
                         C0_ACTIVE_THRESHOLD_INCREMENT *
                         le16_to_cpu(log_data->active_threshold_d+1));
-        json_object_add_value_uint(root, "Active Lantency Minimum Window",
+        json_object_add_value_uint(root, "Active Latency Minimum Window",
                         C0_MINIMUM_WINDOW_INCREMENT *
                         le16_to_cpu(log_data->active_latency_min_window));
         json_object_add_value_uint(root, "Active Latency Stamp Units",
