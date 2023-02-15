@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 
 #include "linux/nvme_ioctl.h"
 
@@ -28,7 +29,12 @@
 #define CREATE_CMD
 #include "ocp-nvme.h"
 
-/* C0 SCAO Log Page */
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Smart Add Log
+
 #define C0_SMART_CLOUD_ATTR_LEN             0x200
 #define C0_SMART_CLOUD_ATTR_OPCODE          0xC0
 #define C0_GUID_LENGTH                      16
@@ -38,19 +44,6 @@
 
 static __u8 scao_guid[C0_GUID_LENGTH]    = { 0xC5, 0xAF, 0x10, 0x28, 0xEA, 0xBF,
                 0xF2, 0xA4, 0x9C, 0x4F, 0x6F, 0x7C, 0xC9, 0x14, 0xD5, 0xAF };
-
-/* C3 Latency Monitor Log Page */
-#define C3_LATENCY_MON_LOG_BUF_LEN          0x200
-#define C3_LATENCY_MON_OPCODE               0xC3
-#define C3_LATENCY_MON_VERSION              0x0001
-#define C3_GUID_LENGTH                      16
-static __u8 lat_mon_guid[C3_GUID_LENGTH] = { 0x92, 0x7a, 0xc0, 0x8c, 0xd0, 0x84,
-                0x6c, 0x9c, 0x70, 0x43, 0xe6, 0xd4, 0x58, 0x5e, 0xd4, 0x85 };
-
-#define READ            0
-#define WRITE           1
-#define TRIM            2
-#define RESERVED        3
 
 typedef enum {
         SCAO_PMUW               =  0,	/* Physical media units written */
@@ -89,43 +82,6 @@ typedef enum {
         SCAO_LPG                = 496,	/* Log page GUID */
 } SMART_CLOUD_ATTRIBUTE_OFFSETS;
 
-struct __attribute__((__packed__)) ssd_latency_monitor_log {
-        __u8    feature_status;                         /* 0x00  */
-        __u8    rsvd1;                                  /* 0x01  */
-        __le16  active_bucket_timer;                    /* 0x02  */
-        __le16  active_bucket_timer_threshold;          /* 0x04  */
-        __u8    active_threshold_a;                     /* 0x06  */
-        __u8    active_threshold_b;                     /* 0x07  */
-        __u8    active_threshold_c;                     /* 0x08  */
-        __u8    active_threshold_d;                     /* 0x09  */
-        __le16  active_latency_config;                  /* 0x0A  */
-        __u8    active_latency_min_window;              /* 0x0C  */
-        __u8    rsvd2[0x13];                            /* 0x0D  */
-
-        __le32  active_bucket_counter[4][4] ;           /* 0x20 - 0x5F   */
-        __le64  active_latency_timestamp[4][3];         /* 0x60 - 0xBF   */
-        __le16  active_measured_latency[4][3];          /* 0xC0 - 0xD7   */
-        __le16  active_latency_stamp_units;             /* 0xD8  */
-        __u8    rsvd3[0x16];                            /* 0xDA  */
-
-        __le32  static_bucket_counter[4][4] ;           /* 0xF0  - 0x12F */
-        __le64  static_latency_timestamp[4][3];         /* 0x130 - 0x18F */
-        __le16  static_measured_latency[4][3];          /* 0x190 - 0x1A7 */
-        __le16  static_latency_stamp_units;             /* 0x1A8 */
-        __u8    rsvd4[0x16];                            /* 0x1AA */
-
-        __le16  debug_log_trigger_enable;               /* 0x1C0 */
-        __le16  debug_log_measured_latency;             /* 0x1C2 */
-        __le64  debug_log_latency_stamp;                /* 0x1C4 */
-        __le16  debug_log_ptr;                          /* 0x1CC */
-        __le16  debug_log_counter_trigger;              /* 0x1CE */
-        __u8    debug_log_stamp_units;                  /* 0x1D0 */
-        __u8    rsvd5[0x1D];                            /* 0x1D1 */
-
-        __le16  log_page_version;                       /* 0x1EE */
-        __u8    log_page_guid[0x10];                    /* 0x1F0 */
-};
-
 static long double int128_to_double(__u8 *data)
 {
         int i;
@@ -136,23 +92,6 @@ static long double int128_to_double(__u8 *data)
                 result += data[15 - i];
         }
         return result;
-}
-
-static int convert_ts(time_t time, char *ts_buf)
-{
-        struct tm  gmTimeInfo;
-        time_t     time_Human, time_ms;
-        char       buf[80];
-
-        time_Human = time/1000;
-        time_ms = time % 1000;
-
-        gmtime_r((const time_t *)&time_Human, &gmTimeInfo);
-
-        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &gmTimeInfo);
-        sprintf(ts_buf, "%s.%03ld GMT", buf, time_ms);
-
-        return 0;
 }
 
 static void ocp_print_C0_log_normal(void *data)
@@ -433,7 +372,94 @@ static int ocp_smart_add_log(int argc, char **argv, struct command *cmd,
         return ret;
 }
 
-static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_data)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Latency Monitor Log
+
+#define C3_LATENCY_MON_LOG_BUF_LEN          0x200
+#define C3_LATENCY_MON_OPCODE               0xC3
+#define C3_LATENCY_MON_VERSION              0x0001
+#define C3_GUID_LENGTH                      16
+#define NVME_FEAT_OCP_LATENCY_MONITOR	    0xC5
+static __u8 lat_mon_guid[C3_GUID_LENGTH] = { 0x92, 0x7a, 0xc0, 0x8c, 0xd0, 0x84,
+                0x6c, 0x9c, 0x70, 0x43, 0xe6, 0xd4, 0x58, 0x5e, 0xd4, 0x85 };
+
+#define READ            0
+#define WRITE           1
+#define TRIM            2
+#define RESERVED        3
+
+struct __attribute__((__packed__)) ssd_latency_monitor_log {
+        __u8    feature_status;                         /* 0x00  */
+        __u8    rsvd1;                                  /* 0x01  */
+        __le16  active_bucket_timer;                    /* 0x02  */
+        __le16  active_bucket_timer_threshold;          /* 0x04  */
+        __u8    active_threshold_a;                     /* 0x06  */
+        __u8    active_threshold_b;                     /* 0x07  */
+        __u8    active_threshold_c;                     /* 0x08  */
+        __u8    active_threshold_d;                     /* 0x09  */
+        __le16  active_latency_config;                  /* 0x0A  */
+        __u8    active_latency_min_window;              /* 0x0C  */
+        __u8    rsvd2[0x13];                            /* 0x0D  */
+
+        __le32  active_bucket_counter[4][4] ;           /* 0x20 - 0x5F   */
+        __le64  active_latency_timestamp[4][3];         /* 0x60 - 0xBF   */
+        __le16  active_measured_latency[4][3];          /* 0xC0 - 0xD7   */
+        __le16  active_latency_stamp_units;             /* 0xD8  */
+        __u8    rsvd3[0x16];                            /* 0xDA  */
+
+        __le32  static_bucket_counter[4][4] ;           /* 0xF0  - 0x12F */
+        __le64  static_latency_timestamp[4][3];         /* 0x130 - 0x18F */
+        __le16  static_measured_latency[4][3];          /* 0x190 - 0x1A7 */
+        __le16  static_latency_stamp_units;             /* 0x1A8 */
+        __u8    rsvd4[0x16];                            /* 0x1AA */
+
+        __le16  debug_log_trigger_enable;               /* 0x1C0 */
+        __le16  debug_log_measured_latency;             /* 0x1C2 */
+        __le64  debug_log_latency_stamp;                /* 0x1C4 */
+        __le16  debug_log_ptr;                          /* 0x1CC */
+        __le16  debug_log_counter_trigger;              /* 0x1CE */
+        __u8    debug_log_stamp_units;                  /* 0x1D0 */
+        __u8    rsvd5[0x1D];                            /* 0x1D1 */
+
+        __le16  log_page_version;                       /* 0x1EE */
+        __u8    log_page_guid[0x10];                    /* 0x1F0 */
+};
+
+struct __attribute__((__packed__)) feature_latency_monitor {
+	__u16 active_bucket_timer_threshold;
+	__u8  active_threshold_a;
+	__u8  active_threshold_b;
+	__u8  active_threshold_c;
+	__u8  active_threshold_d;
+	__u16 active_latency_config;
+	__u8  active_latency_minimum_window;
+	__u16 debug_log_trigger_enable;
+	__u8  discard_debug_log;
+	__u8  latency_monitor_feature_enable;
+	__u8  reserved[4083];
+};
+
+static int convert_ts(time_t time, char *ts_buf)
+{
+        struct tm  gmTimeInfo;
+        time_t     time_Human, time_ms;
+        char       buf[80];
+
+        time_Human = time/1000;
+        time_ms = time % 1000;
+
+        gmtime_r((const time_t *)&time_Human, &gmTimeInfo);
+
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &gmTimeInfo);
+        sprintf(ts_buf, "%s.%03ld GMT", buf, time_ms);
+
+        return 0;
+}
+
+static int ocp_print_C3_log_normal(struct ssd_latency_monitor_log *log_data)
 {
         printf("-Latency Monitor/C3 Log Page Data- \n");
         printf("  Controller   :  %s\n", devicename);
@@ -442,7 +468,7 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
         char       ts_buf[128];
 
         printf("  Feature Status                     0x%x \n",
-                log_data->feature_status);
+                 log_data->feature_status);
         printf("  Active Bucket Timer                %d min \n",
                  C0_ACTIVE_BUCKET_TIMER_INCREMENT *
                  le16_to_cpu(log_data->active_bucket_timer));
@@ -470,7 +496,30 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
                  le16_to_cpu(log_data->static_latency_stamp_units));
         printf("  Debug Log Trigger Enable           %d \n",
                  le16_to_cpu(log_data->debug_log_trigger_enable));
+        printf("  Debug Log Measured Latency         %d \n",
+                 le16_to_cpu(log_data->debug_log_measured_latency));
+        if (le64_to_cpu(log_data->debug_log_latency_stamp) == -1)
+                printf("  Debug Log Latency Time Stamp       N/A \n");
+        else {
+                convert_ts(le64_to_cpu(log_data->debug_log_latency_stamp), ts_buf);
+                printf("  Debug Log Latency Time Stamp       %s \n", ts_buf);
+        }
+        printf("  Debug Log Pointer                  %d \n",
+                 le16_to_cpu(log_data->debug_log_ptr));
+        printf("  Debug Counter Trigger Source       %d \n",
+                 le16_to_cpu(log_data->debug_log_counter_trigger));
+        printf("  Debug Log Stamp Units              %d \n",
+                 le16_to_cpu(log_data->debug_log_stamp_units));
+        printf("  Log Page Version                   %d \n",
+                 le16_to_cpu(log_data->log_page_version));
 
+        char guid[(C3_GUID_LENGTH * 2) + 1];
+        char *ptr = &guid[0];
+        for (i = C3_GUID_LENGTH - 1; i >= 0; i--) {
+                ptr += sprintf(ptr, "%02X", log_data->log_page_guid[i]);
+        }
+        printf("  Log Page GUID                      %s \n", guid);
+        printf("\n");
         printf("                                                            Read                           Write                 Deallocate/Trim \n");
         for (i = 0; i <= 3; i++) {
                 printf("  Active Latency Mode: Bucket %d      %27d     %27d     %27d \n",
@@ -479,7 +528,6 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
                         log_data->active_latency_config & (1 << pos),
                         log_data->active_latency_config & (1 << pos));
         }
-        printf("\n");
         for (i = 0; i <= 3; i++) {
                 printf("  Active Bucket Counter: Bucket %d    %27d     %27d     %27d \n",
                         i,
@@ -487,15 +535,6 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
                         le32_to_cpu(log_data->active_bucket_counter[i][WRITE]),
                         le32_to_cpu(log_data->active_bucket_counter[i][TRIM]));
         }
-
-        for (i = 0; i <= 3; i++) {
-                printf("  Active Measured Latency: Bucket %d  %27d ms  %27d ms  %27d ms \n",
-                        i,
-                        le16_to_cpu(log_data->active_measured_latency[i][READ]),
-                        le16_to_cpu(log_data->active_measured_latency[i][WRITE]),
-                        le16_to_cpu(log_data->active_measured_latency[i][TRIM]));
-        }
-
         for (i = 0; i <= 3; i++) {
                 printf("  Active Latency Time Stamp: Bucket %d    ", i);
                 for (j = 0; j <= 2; j++) {
@@ -508,7 +547,14 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
                 }
                 printf("\n");
         }
-
+        for (i = 0; i <= 3; i++) {
+                printf("  Active Measured Latency: Bucket %d  %27d ms  %27d ms  %27d ms \n",
+                        i,
+                        le16_to_cpu(log_data->active_measured_latency[i][READ]),
+                        le16_to_cpu(log_data->active_measured_latency[i][WRITE]),
+                        le16_to_cpu(log_data->active_measured_latency[i][TRIM]));
+        }
+        printf("\n");
         for (i = 0; i <= 3; i++) {
                 printf("  Static Bucket Counter: Bucket %d    %27d     %27d     %27d \n",
                         i,
@@ -516,15 +562,6 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
                         le32_to_cpu(log_data->static_bucket_counter[i][WRITE]),
                         le32_to_cpu(log_data->static_bucket_counter[i][TRIM]));
         }
-
-        for (i = 0; i <= 3; i++) {
-                printf("  Static Measured Latency: Bucket %d  %27d ms  %27d ms  %27d ms \n",
-                        i,
-                        le16_to_cpu(log_data->static_measured_latency[i][READ]),
-                        le16_to_cpu(log_data->static_measured_latency[i][WRITE]),
-                        le16_to_cpu(log_data->static_measured_latency[i][TRIM]));
-        }
-
         for (i = 0; i <= 3; i++) {
                 printf("  Static Latency Time Stamp: Bucket %d    ", i);
                 for (j = 0; j <= 2; j++) {
@@ -537,7 +574,13 @@ static int ocp_print_C3_log_normal(int fd, struct ssd_latency_monitor_log *log_d
                 }
                 printf("\n");
         }
-
+        for (i = 0; i <= 3; i++) {
+                printf("  Static Measured Latency: Bucket %d  %27d ms  %27d ms  %27d ms \n",
+                        i,
+                        le16_to_cpu(log_data->static_measured_latency[i][READ]),
+                        le16_to_cpu(log_data->static_measured_latency[i][WRITE]),
+                        le16_to_cpu(log_data->static_measured_latency[i][TRIM]));
+        }
         return 0;
 }
 
@@ -571,16 +614,6 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
         json_object_add_value_uint(root, "Active Threshold D",
                         C0_ACTIVE_THRESHOLD_INCREMENT *
                         le16_to_cpu(log_data->active_threshold_d+1));
-        json_object_add_value_uint(root, "Active Latency Minimum Window",
-                        C0_MINIMUM_WINDOW_INCREMENT *
-                        le16_to_cpu(log_data->active_latency_min_window));
-        json_object_add_value_uint(root, "Active Latency Stamp Units",
-                        le16_to_cpu(log_data->active_latency_stamp_units));
-        json_object_add_value_uint(root, "Static Latency Stamp Units",
-                        le16_to_cpu(log_data->static_latency_stamp_units));
-        json_object_add_value_uint(root, "Debug Log Trigger Enable",
-                        le16_to_cpu(log_data->debug_log_trigger_enable));
-
         for (i = 0; i <= 3; i++) {
                 struct json_object *bucket;
                 bucket = json_create_object();
@@ -591,6 +624,9 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
                 }
                 json_object_add_value_object(root, buf, bucket);
         }
+        json_object_add_value_uint(root, "Active Latency Minimum Window",
+                        C0_MINIMUM_WINDOW_INCREMENT *
+                        le16_to_cpu(log_data->active_latency_min_window));
         for (i = 0; i <= 3; i++) {
                 struct json_object *bucket;
                 bucket = json_create_object();
@@ -598,16 +634,6 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
                 for (j = 0; j <= 2; j++) {
                         json_object_add_value_uint(bucket, operation[j],
                                         le32_to_cpu(log_data->active_bucket_counter[i][j]));
-                }
-                json_object_add_value_object(root, buf, bucket);
-        }
-        for (i = 0; i <= 3; i++) {
-                struct json_object *bucket;
-                bucket = json_create_object();
-                sprintf(buf, "Active Measured Latency: Bucket %d", i);
-                for (j = 0; j <= 2; j++) {
-                        json_object_add_value_uint(bucket, operation[j],
-                                        le16_to_cpu(log_data->active_measured_latency[i][j]));
                 }
                 json_object_add_value_object(root, buf, bucket);
         }
@@ -628,20 +654,22 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
         for (i = 0; i <= 3; i++) {
                 struct json_object *bucket;
                 bucket = json_create_object();
+                sprintf(buf, "Active Measured Latency: Bucket %d", i);
+                for (j = 0; j <= 2; j++) {
+                        json_object_add_value_uint(bucket, operation[j],
+                                        le16_to_cpu(log_data->active_measured_latency[i][j]));
+                }
+                json_object_add_value_object(root, buf, bucket);
+        }
+        json_object_add_value_uint(root, "Active Latency Stamp Units",
+                        le16_to_cpu(log_data->active_latency_stamp_units));
+        for (i = 0; i <= 3; i++) {
+                struct json_object *bucket;
+                bucket = json_create_object();
                 sprintf(buf, "Static Bucket Counter: Bucket %d", i);
                 for (j = 0; j <= 2; j++) {
                         json_object_add_value_uint(bucket, operation[j],
                                         le32_to_cpu(log_data->static_bucket_counter[i][j]));
-                }
-                json_object_add_value_object(root, buf, bucket);
-        }
-        for (i = 0; i <= 3; i++) {
-                struct json_object *bucket;
-                bucket = json_create_object();
-                sprintf(buf, "Static Measured Latency: Bucket %d", i);
-                for (j = 0; j <= 2; j++) {
-                        json_object_add_value_uint(bucket, operation[j],
-                                        le16_to_cpu(log_data->static_measured_latency[i][j]));
                 }
                 json_object_add_value_object(root, buf, bucket);
         }
@@ -659,6 +687,42 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
                 }
                 json_object_add_value_object(root, buf, bucket);
         }
+        for (i = 0; i <= 3; i++) {
+                struct json_object *bucket;
+                bucket = json_create_object();
+                sprintf(buf, "Static Measured Latency: Bucket %d", i);
+                for (j = 0; j <= 2; j++) {
+                        json_object_add_value_uint(bucket, operation[j],
+                                        le16_to_cpu(log_data->static_measured_latency[i][j]));
+                }
+                json_object_add_value_object(root, buf, bucket);
+        }
+        json_object_add_value_uint(root, "Static Latency Stamp Units",
+                        le16_to_cpu(log_data->static_latency_stamp_units));
+        json_object_add_value_uint(root, "Debug Log Trigger Enable",
+                        le16_to_cpu(log_data->debug_log_trigger_enable));
+        json_object_add_value_uint(root, "Debug Log Measured Latency",
+                        le16_to_cpu(log_data->debug_log_measured_latency));
+        if (le64_to_cpu(log_data->debug_log_latency_stamp) == -1)
+                json_object_add_value_string(root, "Debug Log Latency Time Stamp", "NA");
+        else {
+                convert_ts(le64_to_cpu(log_data->debug_log_latency_stamp), ts_buf);
+                json_object_add_value_string(root, "Debug Log Latency Time Stamp", ts_buf);
+        }
+        json_object_add_value_uint(root, "Debug Log Pointer",
+                        le16_to_cpu(log_data->debug_log_ptr));
+        json_object_add_value_uint(root, "Debug Counter Trigger Source",
+                        le16_to_cpu(log_data->debug_log_counter_trigger));
+        json_object_add_value_uint(root, "Debug Log Stamp Units",
+                        le16_to_cpu(log_data->debug_log_stamp_units));
+        json_object_add_value_uint(root, "Log Page Version",
+                        le16_to_cpu(log_data->log_page_version));
+        char guid[(C3_GUID_LENGTH * 2) + 1];
+        char *ptr = &guid[0];
+        for (i = C3_GUID_LENGTH - 1; i >= 0; i--) {
+                ptr += sprintf(ptr, "%02X", log_data->log_page_guid[i]);
+        }
+        json_object_add_value_string(root, "Log Page GUID", guid);
 
         json_print_object(root, NULL);
         printf("\n");
@@ -729,7 +793,7 @@ static int get_c3_log_page(int fd, char *format)
 
                 switch (fmt) {
                 case NORMAL:
-                        ocp_print_C3_log_normal(fd, log_data);
+                        ocp_print_C3_log_normal(log_data);
                         break;
                 case JSON:
                         ocp_print_C3_log_json(log_data);
@@ -777,4 +841,552 @@ static int ocp_latency_monitor_log(int argc, char **argv, struct command *comman
                         ret);
         close(fd);
         return ret;
+}
+
+int ocp_set_latency_monitor_feature(int argc, char **argv, struct command *cmd, struct plugin *plugin)
+{
+        int fd;
+	int err = -1;
+	__u32 result;
+	struct feature_latency_monitor buf = {0,};
+	__u32  nsid = NVME_NSID_ALL;
+	struct stat nvme_stat;
+	struct nvme_id_ctrl ctrl;
+
+	const char *desc = "Set Latency Monitor feature.";
+        const char *active_bucket_timer_threshold = "This is the value that loads the Active Bucket Timer Threshold.";
+        const char *active_threshold_a = "This is the value that loads into the Active Threshold A.";
+        const char *active_threshold_b = "This is the value that loads into the Active Threshold B.";
+        const char *active_threshold_c = "This is the value that loads into the Active Threshold C.";
+        const char *active_threshold_d = "This is the value that loads into the Active Threshold D.";
+        const char *active_latency_config = "This is the value that loads into the Active Latency Configuration.";
+        const char *active_latency_minimum_window = "This is the value that loads into the Active Latency Minimum Window.";
+        const char *debug_log_trigger_enable = "This is the value that loads into the Debug Log Trigger Enable.";
+        const char *discard_debug_log = "Discard Debug Log.";
+        const char *latency_monitor_feature_enable = "Latency Monitor Feature Enable.";
+
+        struct config {
+                __u16 active_bucket_timer_threshold;
+                __u8 active_threshold_a;
+                __u8 active_threshold_b;
+                __u8 active_threshold_c;
+                __u8 active_threshold_d;
+                __u16 active_latency_config;
+                __u8 active_latency_minimum_window;
+                __u16 debug_log_trigger_enable;
+                __u8 discard_debug_log;
+                __u8 latency_monitor_feature_enable;
+        };
+
+	struct config cfg = {
+		.active_bucket_timer_threshold = 0x7E0,
+		.active_threshold_a = 0x5,
+		.active_threshold_b = 0x13,
+		.active_threshold_c = 0x1E,
+		.active_threshold_d = 0x2E,
+		.active_latency_config = 0xFFF,
+                .active_latency_minimum_window = 0xA,
+                .debug_log_trigger_enable = 0,
+                .discard_debug_log = 0,
+                .latency_monitor_feature_enable = 0x7,
+	};
+
+	const struct argconfig_commandline_options command_line_options[] = {
+                {"active_bucket_timer_threshold", 't', "NUM", CFG_POSITIVE, &cfg.active_bucket_timer_threshold, required_argument, active_bucket_timer_threshold},
+                {"active_threshold_a", 'a', "NUM", CFG_POSITIVE, &cfg.active_threshold_a, required_argument, active_threshold_a},
+                {"active_threshold_b", 'b', "NUM", CFG_POSITIVE, &cfg.active_threshold_b, required_argument, active_threshold_b},
+                {"active_threshold_c", 'c', "NUM", CFG_POSITIVE, &cfg.active_threshold_c, required_argument, active_threshold_c},
+                {"active_threshold_d", 'd', "NUM", CFG_POSITIVE, &cfg.active_threshold_d, required_argument, active_threshold_d},
+                {"active_latency_config", 'f', "NUM", CFG_POSITIVE, &cfg.active_latency_config, required_argument, active_latency_config},
+                {"active_latency_minimum_window", 'w', "NUM", CFG_POSITIVE, &cfg.active_latency_minimum_window, required_argument, active_latency_minimum_window},
+                {"debug_log_trigger_enable", 'r', "NUM", CFG_POSITIVE, &cfg.debug_log_trigger_enable, required_argument, debug_log_trigger_enable},
+                {"discard_debug_log", 'l', "NUM", CFG_POSITIVE, &cfg.discard_debug_log, required_argument, discard_debug_log},
+                {"latency_monitor_feature_enable", 'e', "NUM", CFG_POSITIVE, &cfg.latency_monitor_feature_enable, required_argument, latency_monitor_feature_enable},
+                {NULL}
+        };
+
+	fd = parse_and_open(argc, argv, desc, command_line_options);
+	if (fd < 0) {
+		return fd;
+	}
+
+        err = fstat(fd, &nvme_stat);
+	if (err < 0)
+		goto close_fd;
+
+	if (S_ISBLK(nvme_stat.st_mode)) {
+		err = nsid = nvme_get_nsid(fd);
+		if (err < 0) {
+			perror("invalid-namespace-id");
+			goto close_fd;
+		}
+	}
+
+	err = nvme_identify_ctrl(fd, &ctrl);
+	if (err != 0) {
+		goto close_fd;
+	}
+
+	memset(&buf, 0, sizeof (struct feature_latency_monitor));
+
+	buf.active_bucket_timer_threshold = cfg.active_bucket_timer_threshold;
+	buf.active_threshold_a = cfg.active_threshold_a;
+	buf.active_threshold_b = cfg.active_threshold_b;
+	buf.active_threshold_c = cfg.active_threshold_c;
+	buf.active_threshold_d = cfg.active_threshold_d;
+	buf.active_latency_config = cfg.active_latency_config;
+	buf.active_latency_minimum_window = cfg.active_latency_minimum_window;
+	buf.debug_log_trigger_enable = cfg.debug_log_trigger_enable;
+	buf.discard_debug_log = cfg.discard_debug_log;
+	buf.latency_monitor_feature_enable = cfg.latency_monitor_feature_enable;
+
+	err = nvme_set_feature(fd, 0, NVME_FEAT_OCP_LATENCY_MONITOR, 0, 0, 1, sizeof(struct feature_latency_monitor), (void*)&buf, &result);
+
+	if (err < 0) {
+		perror("set-feature");
+	} else if (!err) {
+		printf("NVME_FEAT_OCP_LATENCY_MONITOR: 0x%02x \n", NVME_FEAT_OCP_LATENCY_MONITOR);
+		printf("active bucket timer threshold: 0x%x \n", buf.active_bucket_timer_threshold);
+		printf("active threshold a: 0x%x \n", buf.active_threshold_a);
+		printf("active threshold b: 0x%x \n", buf.active_threshold_b);
+		printf("active threshold c: 0x%x \n", buf.active_threshold_c);
+		printf("active threshold d: 0x%x \n", buf.active_threshold_d);
+		printf("active latency config: 0x%x \n", buf.active_latency_config);
+		printf("active latency minimum window: 0x%x \n", buf.active_latency_minimum_window);
+		printf("debug log trigger enable: 0x%x \n", buf.debug_log_trigger_enable);
+		printf("discard debug log: 0x%x \n", buf.discard_debug_log);
+		printf("latency monitor feature enable: 0x%x \n", buf.latency_monitor_feature_enable);
+	} else if (err > 0)
+		fprintf(stderr, "NVMe Status:%s(%x)\n", nvme_status_to_string(err), err);
+
+close_fd:
+	close(fd);
+return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Telemetry Log
+
+#define TELEMETRY_HEADER_SIZE 512
+#define TELEMETRY_BYTE_PER_BLOCK 512
+#define TELEMETRY_TRANSFER_SIZE 1024
+#define FILE_NAME_SIZE 2048
+
+
+enum TELEMETRY_TYPE {
+	TELEMETRY_TYPE_NONE       = 0,
+	TELEMETRY_TYPE_HOST       = 7,
+	TELEMETRY_TYPE_CONTROLLER = 8,
+	TELEMETRY_TYPE_HOST_0     = 9,
+	TELEMETRY_TYPE_HOST_1     = 10,
+};
+
+struct telemetry_initiated_log {
+	__u8  LogIdentifier;
+	__u8  Reserved1[4];
+	__u8  IEEE[3];
+	__le16 DataArea1LastBlock;
+	__le16 DataArea2LastBlock;
+	__le16 DataArea3LastBlock;
+	__u8  Reserved2[368];
+	__u8  DataAvailable;
+	__u8  DataGenerationNumber;
+	__u8  ReasonIdentifier[128];
+};
+
+static void get_serial_number(int fd, struct nvme_id_ctrl *ctrl, char *sn)
+{
+	int i;
+	// Remove trailing spaces from the name
+	for (i = 0; i < sizeof(ctrl->sn); i++) {
+		if (ctrl->sn[i] == ' ')
+			break;
+		sn[i] = ctrl->sn[i];
+	}
+}
+
+static int ocp_nvme_submit_admin_passthru(int fd, struct nvme_passthru_cmd *cmd)
+{
+	return ioctl(fd, NVME_IOCTL_ADMIN_CMD, cmd);
+}
+
+static int get_telemetry_header(int fd, __u32 ns, __u8 tele_type,
+		__u32 data_len, void *data, __u8 nLSP, __u8 nRAE)
+{
+        struct nvme_admin_cmd cmd =
+	{
+		.opcode		= nvme_admin_get_log_page,
+		.nsid		= ns,
+		.addr		= (__u64)(uintptr_t) data,
+		.data_len	= data_len,
+	};
+
+	__u32 numd = (data_len >> 2) - 1;
+	__u16 numdu = numd >> 16;
+	__u16 numdl = numd & 0xffff;
+
+	cmd.cdw10 = tele_type | ((nLSP & 0x0F) << 8) | ((nRAE & 0x01) << 15)
+			    |  ((numdl & 0xFFFF) << 16);
+	cmd.cdw11 = numdu;
+	cmd.cdw12 = 0;
+	cmd.cdw13 = 0;
+	cmd.cdw14 = 0;
+
+        return ocp_nvme_submit_admin_passthru(fd, &cmd);
+}
+
+static void print_telemetry_header(struct telemetry_initiated_log *logheader,
+		int tele_type)
+{
+	if (logheader != NULL) {
+		unsigned int i = 0, j = 0;
+
+		if (tele_type == TELEMETRY_TYPE_HOST)
+			printf("============ Telemetry Host Header ============\n");
+		else
+			printf("========= Telemetry Controller Header =========\n");
+
+		printf("Log Identifier         : 0x%02X\n", logheader->LogIdentifier);
+		printf("IEEE                   : 0x%02X%02X%02X\n",
+				logheader->IEEE[0], logheader->IEEE[1], logheader->IEEE[2]);
+		printf("Data Area 1 Last Block : 0x%04X\n",
+				le16_to_cpu(logheader->DataArea1LastBlock));
+		printf("Data Area 2 Last Block : 0x%04X\n",
+				le16_to_cpu(logheader->DataArea2LastBlock));
+		printf("Data Area 3 Last Block : 0x%04X\n",
+				le16_to_cpu(logheader->DataArea3LastBlock));
+		printf("Data Available         : 0x%02X\n",	logheader->DataAvailable);
+		printf("Data Generation Number : 0x%02X\n",	logheader->DataGenerationNumber);
+		printf("Reason Identifier      :\n");
+
+		for (i = 0; i < 8; i++) {
+			for (j = 0; j < 16; j++)
+				printf("%02X ",	logheader->ReasonIdentifier[127 - ((i * 16) + j)]);
+			printf("\n");
+		}
+		printf("===============================================\n\n");
+	}
+}
+
+static int extract_dump_get_log(char *featurename, char *filename, char *sn,
+		int dumpsize, int transfersize, int fd, __u32 nsid, __u8 log_id,
+		__u8 lsp, __u64 offset, bool rae)
+{
+	int i = 0, err = 0;
+
+	char *data = calloc(transfersize, sizeof(char));
+	char filepath[FILE_NAME_SIZE] = {0,};
+	int output = 0;
+	int total_loop_cnt = dumpsize / transfersize;
+	int last_xfer_size = dumpsize % transfersize;
+
+	if (last_xfer_size != 0)
+		total_loop_cnt++;
+	else
+		last_xfer_size = transfersize;
+
+        snprintf(filepath, FILE_NAME_SIZE + 6, "/%s_%s.bin", featurename, sn);
+
+	for (i = 0; i < total_loop_cnt; i++) {
+		memset(data, 0, transfersize);
+		err = nvme_get_log14(fd, nsid, log_id, lsp, offset, 0, rae,
+				0, transfersize, (void *)data);
+		if (err != 0) {
+			if (i > 0)
+				goto close_output;
+			else
+				goto end;
+		}
+
+		if (i != total_loop_cnt - 1) {
+			if (i == 0) {
+				output = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+				if (output < 0) {
+					err = -1;
+					goto end;
+				}
+			}
+			if (write(output, data, transfersize) < 0) {
+				err = -1;
+				goto close_output;
+			}
+		} else { //last piece
+			if (write(output, data, last_xfer_size) < 0) {
+				err = -1;
+				goto close_output;
+			}
+		}
+		offset += transfersize;
+		printf("%d%%\r", (i + 1) * 100 / total_loop_cnt);
+	}
+	printf("100%%\nThe log file was saved at \"%s\"\n", filepath);
+
+close_output:
+	close(output);
+
+end:
+	free(data);
+	return err;
+}
+
+static int get_telemetry_dump(int fd, char *filename, char *sn,
+		enum TELEMETRY_TYPE tele_type, int data_area, bool header_print)
+{
+	__u32 err = 0, nsid = 0x00000000;
+	__u8 lsp = 0, rae = 0;
+
+	char data[TELEMETRY_TRANSFER_SIZE] = {0,};
+	char *featurename = 0;
+
+	if (tele_type == TELEMETRY_TYPE_HOST_0) {
+		featurename = "Host(0)";
+		lsp = 0;
+		rae = 0;
+		tele_type = TELEMETRY_TYPE_HOST;
+	} else if (tele_type == TELEMETRY_TYPE_HOST_1) {
+		featurename = "Host(1)";
+		lsp = 1;
+		rae = 0;
+		tele_type = TELEMETRY_TYPE_HOST;
+	} else { // TELEMETRY_TYPE_CONTROLLER
+		featurename = "Controller";
+		lsp = 0;
+		rae = 1;
+	}
+
+	// Get Header
+	err = get_telemetry_header(fd, nsid, tele_type, TELEMETRY_HEADER_SIZE,
+			(void *)data, lsp, rae);
+	if (err) {
+                printf("asdf");
+		goto end;
+        }
+
+	struct telemetry_initiated_log *logheader =
+			(struct telemetry_initiated_log *)data;
+
+	if (header_print)
+		print_telemetry_header(logheader, tele_type);
+
+	__u64 offset = 0, size = 0;
+
+	switch (data_area) {
+	case 1:
+		offset  = TELEMETRY_HEADER_SIZE;
+		size    = le16_to_cpu(logheader->DataArea1LastBlock);
+		break;
+
+	case 2:
+		offset  = TELEMETRY_HEADER_SIZE
+				+ (le16_to_cpu(logheader->DataArea1LastBlock) * TELEMETRY_BYTE_PER_BLOCK);
+		size    = le16_to_cpu(logheader->DataArea2LastBlock)
+				- le16_to_cpu(logheader->DataArea1LastBlock);
+		break;
+
+	case 3:
+		offset  = TELEMETRY_HEADER_SIZE
+				+ (le16_to_cpu(logheader->DataArea2LastBlock) * TELEMETRY_BYTE_PER_BLOCK);
+		size    = le16_to_cpu(logheader->DataArea3LastBlock)
+				- le16_to_cpu(logheader->DataArea2LastBlock);
+		break;
+
+	default:
+		break;
+	}
+
+	if (size == 0) {
+		printf("Telemetry %s Area %d is empty.\n", featurename, data_area);
+		goto end;
+	}
+
+	// Get Data Block
+	char dumpname[FILE_NAME_SIZE] = {0,};
+
+	snprintf(dumpname, FILE_NAME_SIZE,
+					"Telemetry_%s_Area_%d", featurename, data_area);
+	err = extract_dump_get_log(dumpname, filename, sn, size * TELEMETRY_BYTE_PER_BLOCK,
+			TELEMETRY_TRANSFER_SIZE, fd, nsid, tele_type,
+			0, offset, rae);
+	if (err)
+		goto end;
+
+end:
+	return err;
+}
+
+static int ocp_telemetry_log(int argc, char **argv, struct command *cmd,
+                              struct plugin *plugin)
+{
+        int fd;
+	int err = 0;
+	const char *desc = "Retrieve and save telemetry log.";
+	const char *type = "Telemetry Type; 'host[Create bit]' or 'controller'";
+	const char *area = "Telemetry Data Area; 1 or 3";
+	const char *sfr_i = "Enable SFR for Inband Dump. Default: disabled.";
+	const char *sfr_o = "Enable SFR for Ondemand Dump. Default: disabled.";
+        // TODO: DELETE
+        const char *file = "asdf";
+
+	__u32  nsid = NVME_NSID_ALL;
+	struct stat nvme_stat;
+	char sn[21] = {0,};
+	struct nvme_id_ctrl ctrl;
+	bool is_support_telemetry_controller;
+
+	int tele_type = 0;
+	int tele_area = 0;
+
+	struct config {
+		char *type;
+		int area;
+		int sfr_i;
+		int sfr_o;
+		char *file;
+	};
+
+	struct config cfg = {
+		.type = NULL,
+		.area = 0,
+		.sfr_i = 0,
+		.sfr_o = 0,
+		.file = NULL,
+	};
+
+	const struct argconfig_commandline_options command_line_options[] = {
+		{"telemetry_type",      't', "TYPE", CFG_STRING, &cfg.type,  required_argument, type},
+		{"telemetry_data_area", 'a', "NUM",  CFG_INT,    &cfg.area,  required_argument, area},
+		{"sfr_inband",          'I', NULL,   CFG_NONE,   &cfg.sfr_i, no_argument,       sfr_i},
+		{"sfr_ondemand",        'O', NULL,   CFG_NONE,   &cfg.sfr_o, no_argument,       sfr_o},
+		{"output-file",         'o', "FILE", CFG_STRING, &cfg.file,  required_argument, file},
+		{NULL}
+	};
+
+	fd = parse_and_open(argc, argv, desc, command_line_options);
+	if (fd < 0) {
+		return fd;
+	}
+
+	err = fstat(fd, &nvme_stat);
+	if (err < 0)
+		goto close_fd;
+
+	if (S_ISBLK(nvme_stat.st_mode)) {
+		err = nsid = nvme_get_nsid(fd);
+		if (err < 0) {
+			perror("invalid-namespace-id");
+			goto close_fd;
+		}
+	}
+
+	err = nvme_identify_ctrl(fd, &ctrl);
+	if (err != 0) {
+		goto close_fd;
+	}
+
+	get_serial_number(fd, &ctrl, sn);
+
+	is_support_telemetry_controller = ((ctrl.lpa & 0x8) >> 3);
+
+	if (!cfg.type && !cfg.area) {
+		tele_type = TELEMETRY_TYPE_NONE;
+		tele_area = 0;
+	} else if ((!cfg.type + !cfg.area) == 0) {
+		if (!strcmp(cfg.type, "host0"))
+			tele_type = TELEMETRY_TYPE_HOST_0;
+		else if (!strcmp(cfg.type, "host1"))
+			tele_type = TELEMETRY_TYPE_HOST_1;
+		else if	(!strcmp(cfg.type, "controller"))
+			tele_type = TELEMETRY_TYPE_CONTROLLER;
+
+		tele_area = cfg.area;
+
+		if (!((((tele_type == TELEMETRY_TYPE_HOST_0)
+				|| (tele_type == TELEMETRY_TYPE_HOST_1))
+				&& ((tele_area == 1) ||  (tele_area == 3)))
+				|| (tele_type == TELEMETRY_TYPE_CONTROLLER && tele_area == 3))) {
+			printf("\nUnsupported parameters entered.\n");
+			printf("Possible combinations; {'host0',1}, {'host0',3}, "
+					"{'host1',1}, {'host1',3}, {'controller',3}\n");
+			goto close_fd;
+		}
+	} else {
+		printf("\nShould provide these all; 'telemetry_type' "
+				"and 'telemetry_data_area'\n");
+		goto close_fd;
+	}
+
+	if (tele_type == TELEMETRY_TYPE_NONE) {
+		printf("\n-------------------------------------------------------------\n");
+		//Host 0 (lsp == 0) must be executed before Host 1 (lsp == 1).
+		printf("\nExtracting Telemetry Host 0 Dump (Data Area 1)...\n");
+
+		err = get_telemetry_dump(fd, cfg.file, sn,
+				TELEMETRY_TYPE_HOST_0, 1, true);
+		if (err != 0)
+			fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+
+		printf("\n-------------------------------------------------------------\n");
+
+		printf("\nExtracting Telemetry Host 0 Dump (Data Area 3)...\n");
+
+		err = get_telemetry_dump(fd, cfg.file, sn,
+				TELEMETRY_TYPE_HOST_0, 3, false);
+		if (err != 0)
+			fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+
+		printf("\n-------------------------------------------------------------\n");
+
+		printf("\nExtracting Telemetry Host 1 Dump (Data Area 1)...\n");
+
+		err = get_telemetry_dump(fd, cfg.file, sn,
+				TELEMETRY_TYPE_HOST_1, 1, true);
+		if (err != 0)
+			fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+
+		printf("\n-------------------------------------------------------------\n");
+
+		printf("\nExtracting Telemetry Host 1 Dump (Data Area 3)...\n");
+
+		err = get_telemetry_dump(fd, cfg.file, sn,
+				TELEMETRY_TYPE_HOST_1, 3, false);
+		if (err != 0)
+			fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+
+		printf("\n-------------------------------------------------------------\n");
+
+		printf("\nExtracting Telemetry Controller Dump (Data Area 3)...\n");
+
+		if (is_support_telemetry_controller == true) {
+			err = get_telemetry_dump(fd, cfg.file, sn,
+					TELEMETRY_TYPE_CONTROLLER, 3, true);
+			if (err != 0)
+				fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+		}
+
+		printf("\n-------------------------------------------------------------\n");
+	} else if (tele_type == TELEMETRY_TYPE_CONTROLLER) {
+		printf("Extracting Telemetry Controller Dump (Data Area %d)...\n", tele_area);
+
+		if (is_support_telemetry_controller == true) {
+			err = get_telemetry_dump(fd, cfg.file, sn, tele_type, tele_area, true);
+			if (err != 0)
+				fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+		}
+	} else {
+		printf("Extracting Telemetry Host(%d) Dump (Data Area %d)...\n",
+				(tele_type == TELEMETRY_TYPE_HOST_0) ? 0 : 1, tele_area);
+
+		err = get_telemetry_dump(fd, cfg.file, sn, tele_type, tele_area, true);
+		if (err != 0)
+			fprintf(stderr, "NVMe Status: %s(%x)\n", nvme_status_to_string(err), err);
+	}
+
+	printf("telemetry-log done.\n");
+
+close_fd:
+	close(fd);
+return err;
 }

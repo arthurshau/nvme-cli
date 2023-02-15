@@ -17,6 +17,8 @@ PLUGIN(NAME("ocp", "OCP cloud SSD extensions"),
     COMMAND_LIST(
         ENTRY("smart-add-log", "Retrieve extended SMART Information", ocp_smart_add_log)
         ENTRY("latency-monitor-log", "Get Latency Monitor Log Page", ocp_latency_monitor_log)
+        ENTRY("telemetry-log", "Retrieve and save telemetry log", ocp_telemetry_log)
+		ENTRY("set-latency-monitor-feature", "Set Latency Monitor feature", ocp_set_latency_monitor_feature)
     )
 );
 
