@@ -19,6 +19,7 @@ PLUGIN(NAME("ocp", "OCP cloud SSD extensions"),
 		ENTRY("latency-monitor-log", "Get Latency Monitor Log Page", ocp_latency_monitor_log)
 		ENTRY("telemetry-log", "Retrieve and save telemetry log", ocp_telemetry_log)
 		ENTRY("set-latency-monitor-feature", "Set Latency Monitor feature", ocp_set_latency_monitor_feature)
+		ENTRY("fw-activate-history", "Retrieve firmware activation history", ocp_fw_activate_history)
 	)
 );
 

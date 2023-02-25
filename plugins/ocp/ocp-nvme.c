@@ -1104,17 +1104,17 @@ static int extract_dump_get_log(char *featurename, char *filename, char *sn,
 			if (i == 0) {
 				output = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 				if (output < 0) {
-					err = -1;
+					err = -13;
 					goto end;
 				}
 			}
 			if (write(output, data, transfersize) < 0) {
-				err = -1;
+				err = -10;
 				goto close_output;
 			}
 		} else { //last piece
 			if (write(output, data, last_xfer_size) < 0) {
-				err = -1;
+				err = -10;
 				goto close_output;
 			}
 		}
@@ -1387,4 +1387,210 @@ static int ocp_telemetry_log(int argc, char **argv, struct command *cmd,
 close_fd:
 	close(fd);
 return err;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// fw activation history
+
+#define INPUT_FILE_SIZE 2048
+#define UNIT_DATA_SIZE_5KB (5*1024)
+
+typedef struct nvme_FWActivationHistoryData_item
+{
+	__u8 *Buf;
+	__u32 BufSize;
+} nvme_FWActivationHistoryData_item;
+
+typedef struct nvme_security_data_item {
+	__u8 SECP;
+	__u16 SPSP;
+	__u32 tl;
+	void *payload;
+} nvme_security_data_item;
+
+static int SecurityCMDReset(int fd)
+{
+	int err = 0;
+	__u32 result = 0;
+	unsigned char SendBuffer[4] ={0,};
+	nvme_security_data_item sec=
+	{
+		.SECP = 0xFC,
+		.SPSP = 0x1003,
+		.tl = 4,
+		.payload = &SendBuffer,
+	};
+
+	err = nvme_sec_send(fd, 0, 0, sec.SPSP, sec.SECP, sec.tl, sec.tl, sec.payload, &result);
+
+	if (err < 0) {
+		perror("security-send");
+		goto END;
+	} else if (err > 0) {
+		fprintf(stderr, "NVME Security Send Command Error:%d\n", err);
+		goto END;
+	}
+END:
+	return err;
+}
+
+static int get_fw_activation_history_data(int fd, nvme_FWActivationHistoryData_item data)
+{
+	int err = 0;
+	__u32 result = 0;
+	SecurityCMDReset(fd);
+
+	{
+		unsigned char SendBuffer[16] ={0,};
+		nvme_security_data_item sec =
+		{
+			.SECP = 0xFC,
+			.SPSP = 0x1012,
+			.tl = 16,
+			.payload = &SendBuffer
+		};
+
+		SendBuffer[4]  = 0xD;
+
+		err = nvme_sec_send(fd, 0, 0, sec.SPSP, sec.SECP, sec.tl, sec.tl, sec.payload, &result);
+
+		if (err < 0) {
+			perror("security-send");
+			goto END;
+		} else if (err > 0) {
+			fprintf(stderr, "NVME Security Send Command Error:%d\n", err);
+			goto END;
+		}
+	}
+
+	{
+		nvme_security_data_item sec =
+		{
+			.SECP = 0xFC,
+			.SPSP = 0x1012,
+			.tl = data.BufSize,
+			.payload = data.Buf
+		};
+
+		err = nvme_sec_recv(fd, 0, 0, sec.SPSP, sec.SECP, sec.tl, sec.tl, sec.payload, &result);
+
+		if (err < 0) {
+			perror("security-receive");
+			goto END;
+		} else if (err > 0) {
+			fprintf(stderr, "NVME Security Receive Command Error:%d\n", err);
+			goto END;
+		}
+	}
+
+END:
+	return err;
+}
+
+static int get_and_save_fw_activation_history_path(int fd, char *featureName, char *filename, char filePath[INPUT_FILE_SIZE])
+{
+	int err = 0;
+
+	if (filename == 0) {
+		struct nvme_id_ctrl ctrl;
+		int i = sizeof(ctrl.sn) - 1;
+
+		err = nvme_identify_ctrl(fd, &ctrl);
+		if (err)
+		{
+			goto END;
+		}
+
+		// Remove trailing spaces from the name
+		while (i && ctrl.sn[i] == ' ')
+		{
+			ctrl.sn[i] = '\0';
+			i--;
+		}
+
+		snprintf(filePath, INPUT_FILE_SIZE, "%s_%-.*s_FWActivationHistory.json", featureName, (int)sizeof(ctrl.sn), ctrl.sn);
+	}
+	else {
+		snprintf(filePath, INPUT_FILE_SIZE, "%s_s_FWActivationHistory.json", filename);
+	}
+
+END:
+	return err;
+}
+
+static int get_and_save_fw_activation_history(int fd, char *featureName, char *fileName)
+{
+	int err = 0;
+	char filePath[INPUT_FILE_SIZE] = { 0, };
+
+	err = get_and_save_fw_activation_history_path(fd, featureName, fileName, filePath);
+	if (err != 0)
+		goto END;
+
+	int output;
+	if ((output = open(filePath, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) {
+		err = -13;
+		goto END;
+	}
+
+	unsigned char UnitDataBuffer[UNIT_DATA_SIZE_5KB] ={0,};
+
+	nvme_FWActivationHistoryData_item data =
+	{
+		.BufSize = UNIT_DATA_SIZE_5KB,
+		.Buf = UnitDataBuffer
+	};
+	err = get_fw_activation_history_data(fd, data);
+
+	if (err != 0)
+		goto END;
+
+	int nBufSize = strlen((char *)(data.Buf));
+	if (write(output, data.Buf, nBufSize) < 0) {
+		err = -10;
+		goto END;
+	}
+
+	close(output);
+	printf("The log file was saved in the \"%s\"\n", filePath);
+
+
+END:
+	return err;
+}
+
+static int ocp_fw_activate_history(int argc, char **argv, struct command *cmd, struct plugin *plugin)
+{
+	int err = 0;
+	char *desc = "Get FW activation log and save it.";
+	char *file = "Output file; defaults to device serial number";
+
+	struct config {
+		char *file;
+	};
+
+	struct config cfg = {
+		.file = NULL,
+	};
+
+	const struct argconfig_commandline_options command_line_options[] = {
+		{"output-file",  'o', "FILE", CFG_STRING,   &cfg.file,         required_argument, file},
+		{NULL}
+	};
+
+	int fd = parse_and_open(argc, argv, desc, command_line_options);
+
+	if (fd < 0)
+		return fd;
+
+	err = get_and_save_fw_activation_history(fd, argv[0], cfg.file);
+
+	if (err > 0)
+		fprintf(stderr, "NVMe Status:%s(%x)\n", nvme_status_to_string(err), err);
+
+	return err;
 }
