@@ -537,7 +537,7 @@ static int ocp_print_C3_log_normal(struct ssd_latency_monitor_log *log_data)
 	}
 	for (i = 0; i <= 3; i++) {
 		printf("  Active Latency Time Stamp: Bucket %d    ", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			if (le64_to_cpu(log_data->active_latency_timestamp[i][j]) == -1)
 				printf("                    N/A         ");
 			else {
@@ -564,7 +564,7 @@ static int ocp_print_C3_log_normal(struct ssd_latency_monitor_log *log_data)
 	}
 	for (i = 0; i <= 3; i++) {
 		printf("  Static Latency Time Stamp: Bucket %d    ", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			if (le64_to_cpu(log_data->static_latency_timestamp[i][j]) == -1)
 				printf("                    N/A         ");
 			else {
@@ -618,7 +618,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Active Latency Mode: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			json_object_add_value_uint(bucket, operation[j],
 					log_data->active_latency_config & (1 << pos));
 		}
@@ -631,7 +631,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Active Bucket Counter: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			json_object_add_value_uint(bucket, operation[j],
 					le32_to_cpu(log_data->active_bucket_counter[i][j+1]));
 		}
@@ -641,7 +641,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Active Latency Time Stamp: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			if (le64_to_cpu(log_data->active_latency_timestamp[i][j]) == -1)
 				json_object_add_value_string(bucket, operation[j], "NA");
 			else {
@@ -655,7 +655,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Active Measured Latency: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			json_object_add_value_uint(bucket, operation[j],
 					le16_to_cpu(log_data->active_measured_latency[i][j]));
 		}
@@ -667,7 +667,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Static Bucket Counter: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			json_object_add_value_uint(bucket, operation[j],
 					le32_to_cpu(log_data->static_bucket_counter[i][j+1]));
 		}
@@ -677,7 +677,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Static Latency Time Stamp: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			if (le64_to_cpu(log_data->static_latency_timestamp[i][j]) == -1)
 				json_object_add_value_string(bucket, operation[j], "NA");
 			else {
@@ -691,7 +691,7 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 		struct json_object *bucket;
 		bucket = json_create_object();
 		sprintf(buf, "Static Measured Latency: Bucket %d", i);
-		for (j = 2; j <= 0; j--) {
+		for (j = 2; j >= 0; j--) {
 			json_object_add_value_uint(bucket, operation[j],
 					le16_to_cpu(log_data->static_measured_latency[i][j]));
 		}
