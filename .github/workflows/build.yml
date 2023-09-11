@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: install dependencies
         run: sudo apt-get install gcc pkg-config libjson-c-dev libhugetlbfs-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: install dependencies
         run: sudo apt-get install gcc pkg-config libjson-c-dev libhugetlbfs-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -80,7 +80,7 @@ jobs:
     steps:
       - name: install dependencies
         run: sudo apt-get install clang pkg-config libjson-c-dev libhugetlbfs-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -114,7 +114,7 @@ jobs:
     steps:
       - name: install dependencies
         run: sudo apt-get install libpam-dev libcap-ng-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
@@ -148,7 +148,7 @@ jobs:
     steps:
       - name: install dependencies
         run: sudo apt-get install gcc meson ninja-build libpam-dev libcap-ng-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: build
         run: |
           LDFLAGS=-static meson setup   \
@@ -190,7 +190,7 @@ jobs:
         run: sudo apt install gcc-arm-linux-gnueabihf pkg-config qemu-user-static
       - name: install libraries
         run: sudo apt install libjson-c-dev:armhf
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: BSFishy/meson-build@v1.0.3
         name: build
         with:
@@ -233,7 +233,7 @@ jobs:
         run: sudo apt install gcc-powerpc64le-linux-gnu pkg-config qemu-user-static
       - name: install libraries
         run: sudo apt install libjson-c-dev:ppc64el
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: BSFishy/meson-build@v1.0.3
         name: build
         with:
@@ -277,7 +277,7 @@ jobs:
         run: sudo apt install gcc-s390x-linux-gnu libgcc-s1:s390x pkg-config qemu-user-static
       - name: install libraries
         run: sudo apt install libjson-c-dev:s390x
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: BSFishy/meson-build@v1.0.3
         name: build
         with:
@@ -309,7 +309,7 @@ jobs:
     steps:
       - name: install dependencies
         run: sudo apt install gcc make pkg-config libcurl4-openssl-dev libarchive-dev libpkgconf-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: build samurai
         run: |
           cd ..
