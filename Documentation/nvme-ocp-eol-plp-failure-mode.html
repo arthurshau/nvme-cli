@@ -5,7 +5,7 @@
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
 <meta name="generator" content="AsciiDoc 10.2.0" />
-<title>nvme-ocp-clear-fw-activate-history(1)</title>
+<title>nvme-ocp-eol-plp-failure-mode(1)</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
 
@@ -735,12 +735,12 @@ asciidoc.install();
 <body class="manpage">
 <div id="header">
 <h1>
-nvme-ocp-clear-fw-activate-history(1) Manual Page
+nvme-ocp-eol-plp-failure-mode(1) Manual Page
 </h1>
 <h2>NAME</h2>
 <div class="sectionbody">
-<p>nvme-ocp-clear-fw-activate-history -
-   Clear the OCP Firmware Update History Log
+<p>nvme-ocp-eol-plp-failure-mode -
+   Define and print EOL or PLP circuitry failure mode
 </p>
 </div>
 </div>
@@ -749,7 +749,9 @@ nvme-ocp-clear-fw-activate-history(1) Manual Page
 <h2 id="_synopsis">SYNOPSIS</h2>
 <div class="sectionbody">
 <div class="verseblock">
-<pre class="content"><em>nvme ocp clear-fw-activate-history</em> &lt;device&gt; [--no-uuid | -n]</pre>
+<pre class="content"><em>nvme ocp eol-plp-failure-mode</em> &lt;device&gt; [--mode=&lt;mode&gt; | -m &lt;mode&gt;]
+                        [--no-uuid | -n] [--save | -s]
+                        [--sel=&lt;select&gt; | -s &lt;select&gt;]</pre>
 <div class="attribution">
 </div></div>
 </div>
@@ -757,17 +759,12 @@ nvme-ocp-clear-fw-activate-history(1) Manual Page
 <div class="sect1">
 <h2 id="_description">DESCRIPTION</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>For the NVMe device given, Clear OCP Firmware Update History Log.</p></div>
+<div class="paragraph"><p>Define EOL or PLP circuitry failure mode.
+No argument prints current mode.</p></div>
 <div class="paragraph"><p>The &lt;device&gt; parameter is mandatory and may be either the NVMe character
 device (ex: /dev/nvme0) or block device (ex: /dev/nvme0n1).</p></div>
-<div class="paragraph"><p>This command with no option added, will try to automatically detect the
-parameters of the command. This will work successfully or fail gracefully for
-devices supporting UUID for Vendor Specific Information (NVMe 1.4 or later,
-OCP 2.0 requires NVMe 1.4b). For devices that do not support OCP 2.0 the
-command will fail gracefully, unless the --no-uuid option is provided.</p></div>
-<div class="paragraph"><p>For OCP 1.0 devices (before NVMe 1.4) the --no-uuid option is required.
-When --no-uuid option is provided, results for devices before NVMe 1.4 without
-OCP support are undefined.</p></div>
+<div class="paragraph"><p>This will only work on OCP compliant devices supporting this feature.
+Results for any other device are undefined.</p></div>
 <div class="paragraph"><p>On success it returns 0, error code otherwise.</p></div>
 </div>
 </div>
@@ -775,6 +772,19 @@ OCP support are undefined.</p></div>
 <h2 id="_options">OPTIONS</h2>
 <div class="sectionbody">
 <div class="dlist"><dl>
+<dt class="hdlist1">
+-m &lt;mode&gt;
+</dt>
+<dt class="hdlist1">
+--mode=&lt;mode&gt;
+</dt>
+<dd>
+<p>
+        Set the EOL or PLP circuitry failure mode to [0-3] (<em>0: default</em>,
+        <em>1: rom</em>, <em>2: wtm</em> or <em>3: normal</em>). Only one mode
+        can be used at a time. The default is rom.
+</p>
+</dd>
 <dt class="hdlist1">
 -n
 </dt>
@@ -787,6 +797,65 @@ OCP support are undefined.</p></div>
         for old OCP 1.0 support)
 </p>
 </dd>
+<dt class="hdlist1">
+-s
+</dt>
+<dt class="hdlist1">
+--save
+</dt>
+<dd>
+<p>
+        Save the attribute so that it persists through all power states and
+        resets.
+</p>
+</dd>
+<dt class="hdlist1">
+-s &lt;select&gt;
+</dt>
+<dt class="hdlist1">
+--sel=&lt;select&gt;
+</dt>
+<dd>
+<p>
+        Select (SEL): This field specifies which value of the attributes
+        to return in the provided data:
+</p>
+<div class="tableblock">
+<table rules="all"
+width="100%"
+frame="border"
+cellspacing="0" cellpadding="4">
+<col width="50%" />
+<col width="50%" />
+<tbody>
+<tr>
+<td align="left" valign="top"><p class="table">Select</p></td>
+<td align="left" valign="top"><p class="table">Description</p></td>
+</tr>
+<tr>
+<td align="left" valign="top"><p class="table">0</p></td>
+<td align="left" valign="top"><p class="table">Current</p></td>
+</tr>
+<tr>
+<td align="left" valign="top"><p class="table">1</p></td>
+<td align="left" valign="top"><p class="table">Default</p></td>
+</tr>
+<tr>
+<td align="left" valign="top"><p class="table">2</p></td>
+<td align="left" valign="top"><p class="table">Saved</p></td>
+</tr>
+<tr>
+<td align="left" valign="top"><p class="table">3</p></td>
+<td align="left" valign="top"><p class="table">Supported capabilities</p></td>
+</tr>
+<tr>
+<td align="left" valign="top"><p class="table">4-7</p></td>
+<td align="left" valign="top"><p class="table">Reserved</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd>
 </dl></div>
 </div>
 </div>
@@ -796,11 +865,11 @@ OCP support are undefined.</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
-Clears OCP Firmware Activation History Log for the device:
+Has the program issue a eol-plp-failure-mode to retrieve the 0xC2 get features.
 </p>
 <div class="listingblock">
 <div class="content">
-<pre><code># nvme ocp clear-fw-activate-history /dev/nvme0</code></pre>
+<pre><code># nvme ocp eol-plp-failure-mode /dev/nvme0</code></pre>
 </div></div>
 </li>
 </ul></div>

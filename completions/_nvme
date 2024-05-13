@@ -63,6 +63,7 @@ _nvme () {
 	'media-unit-stat-log: retrieve media unit status log pages details'
 	'supported-cap-config-log: retrieve support log pages details'
 	'show-topology: show subystem topology'
+	'ocp:OCP cloud SSD extensions'
 	'help:print brief descriptions of all nvme commands'
 	)
 
@@ -72,6 +73,199 @@ _nvme () {
 
 	if (( CURRENT == 1 )); then
 		_describe -t commands "nvme subcommands" _cmds
+		return
+	elif (( CURRENT > 2 )); then
+		case ${words[1]} in
+		(ocp)
+			case ${words[2]} in
+			(smart-add-log)
+				local _smart_add_log
+				_smart_add_log=(
+				/dev/nvme':supply a device to use (required)'
+				--output-format=':Output format: normal|json'
+				-o':alias for --output-format'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp smart-add-log options" _smart_add_log
+				;;
+			(latency-monitor-log)
+				local _latency_monitor_log
+				_latency_monitor_log=(
+				/dev/nvme':supply a device to use (required)'
+				--output-format=':Output format: normal|json'
+				-o':alias for --output-format'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp latency-monitor-log options" _latency_monitor_log
+				;;
+			(set-latency-monitor-feature)
+				local _set_latency_monitor_feature
+				_set_latency_monitor_feature=(
+				/dev/nvme':supply a device to use (required)'
+				--active_bucket_timer_threshold=':Active Bucket Timer Threshold'
+				-t':alias for --active_bucket_timer_threshold'
+				--active_threshold_a=':Active Threshold A'
+				-a':alias for --active_threshold_a'
+				--active_threshold_a=':Active Threshold B'
+				-b':alias for --active_threshold_b'
+				--active_threshold_c=':Active Threshold C'
+				-c':alias for --active_threshold_c'
+				--active_threshold_d=':Active Threshold D'
+				-d':alias for --active_threshold_d'
+				--active_latency_config=':Active Latency Configuration'
+				-f':alias for --active_latency_config'
+				--active_latency_minimum_window=':Active Latency Minimum Window'
+				-w':alias for --active_latency_minimum_window'
+				--debug_log_trigger_enable='Debug Log Trigger Enable'
+				-r':alias for --debug_log_trigger_enable'
+				--discard_debug_log='Discard Debug Log'
+				-l':alias for --discard_debug_log'
+				--latency_monitor_feature_enable='Latency Monitor Feature Enable'
+				-e':alias for --latency_monitor_feature_enable'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp set-latency-monitor-feature options" _set_latency_monitor_feature
+				;;
+			(internal-log)
+				local _internal_log
+				_internal_log=(
+				/dev/nvme':supply a device to use (required)'
+				--telemetry_type=':Telemetry Type; host (Create bit) or controller'
+				-t':alias for --telemetry_type'
+				--telemetry_data_area=':Telemetry Data Area; 1 or 3'
+				-a':alias for --telemetry_data_area'
+				--output-file=':Output file name with path'
+				-o':alias for --output-file'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp internal-log options" _internal_log
+				;;
+			(clear-fw-activate-history)
+				local _clear_fw_activate_history
+				_clear_fw_activate_history=(
+				/dev/nvme':supply a device to use (required)'
+				--no-uuid':Skip UUID index search'
+				-n':alias for --no-uuid'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp clear-fw-activate-history options" _clear_fw_activate_history
+				;;
+			(eol-plp-failure-mode)
+				local _eol_plp_failure_mode
+				_eol_plp_failure_mode=(
+				/dev/nvme':supply a device to use (required)'
+				--mode=':0-3: default/rom/wtm/normal'
+				-m':alias for --mode'
+				--save':Specifies that the controller shall save the attribute'
+				-s':alias for --save'
+				--sel=':0-3,8: current/default/saved/supported/changed:'
+				-S':alias for --sel'
+				--no-uuid':Skip UUID index search'
+				-n':alias for --no-uuid'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp eol-plp-failure-mode options" _eol_plp_failure_mode
+				;;
+			(clear-pcie-correctable-error-counters)
+				local _clear_pcie_correctable_error_counters
+				_clear_pcie_correctable_error_counters=(
+				/dev/nvme':supply a device to use (required)'
+				--no-uuid':Skip UUID index search'
+				-n':alias for --no-uuid'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp clear-pcie-correctable-error-counters options" _clear_pcie_correctable_error_counters
+				;;
+			(fw-activate-history)
+				local _fw_activate_history
+				_fw_activate_history=(
+				/dev/nvme':supply a device to use (required)'
+				--output-format=':Output format: normal|json'
+				-o':alias for --output-format'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp fw-activate-history options" _fw_activate_history
+				;;
+			(device-capability-log)
+				local _device_capability_log
+				_device_capability_log=(
+				/dev/nvme':supply a device to use (required)'
+				--output-format=':Output format: normal|json|binary'
+				-o':alias for --output-format'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp device-capability-log options" _device_capability_log
+				;;
+			(set-dssd-power-state-feature)
+				local _set_dssd_power_state_feature
+				_set_dssd_power_state_feature=(
+				/dev/nvme':supply a device to use (required)'
+				--power-state=':DSSD Power State to set in watts'
+				-p':alias for --power-state'
+				--save':Specifies that the controller shall save the attribute'
+				-s':alias for --save'
+				--no-uuid':Skip UUID index search'
+				-n':alias for --no-uuid'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp set-dssd-power-state-feature options" _set_dssd_power_state_feature
+				;;
+			(get-dssd-power-state-feature)
+				local _get_dssd_power_state_feature
+				_get_dssd_power_state_feature=(
+				/dev/nvme':supply a device to use (required)'
+				--sel=':select from 0 - current, 1 - default, 2 - saved, 3 - supported'
+				-S':alias to --sel'
+				--all=':Print out all 3 values at once - current, default, and saved'
+				-a':alias to --all'
+				--no-uuid':Skip UUID index search'
+				-n':alias for --no-uuid'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp get-dssd-power-state-feature options" _get_dssd_power_state_feature
+				;;
+			(telemetry-string-log)
+				local _telemetry_string_log
+				_telemetry_string_log=(
+				/dev/nvme':supply a device to use (required)'
+				--output-file=':Output file name with path'
+				-o':alias for --output-file'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp telemetry-string-log options" _telemetry_string_log
+				;;
+			(set-dssd-async-event-config)
+				local _set_dssd_async_event_config
+				_set_dssd_async_event_config=(
+				/dev/nvme':supply a device to use (required)'
+				--enable-panic-notices':Specifies whether an asynchronous event notification
+				is sent to the host for a panic event'
+				-e':alias for --enable-panic-notices'
+				--save':Specifies that the controller shall save the attribute'
+				-s':alias for --save'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp set-dssd-async-event-config options" _set_dssd_async_event_config
+				;;
+			(get-dssd-async-event-config)
+				local _get_dssd_async_event_config
+				_get_dssd_async_event_config=(
+				/dev/nvme':supply a device to use (required)'
+				--sel=':select from 0 - current, 1 - default, 2 - saved, 3 - supported'
+				-S':alias to --sel'
+				)
+				_arguments '*:: :->subcmds'
+				_describe -t commands "nvme ocp get-dssd-async-event-config options" _get_dssd_async_event_config
+				;;
+			(*)
+				_files
+				;;
+			esac
+			;;
+		(*)
+			_files
+			;;
+		esac
 		return
 	else
 		case ${words[CURRENT-1]} in
@@ -984,6 +1178,26 @@ _nvme () {
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme show-topology options" _showtopology
 			;;
+		(ocp)
+			local _ocp
+			_ocp=(
+			smart-add-log':Retrieve extended SMART Information'
+			latency-monitor-log':Get Latency Monitor Log Page'
+			set-latency-monitor-feature':Set Latency Monitor feature'
+			internal-log':Retrieve and save internal device telemetry log'
+			clear-fw-activate-history':Clear firmware update history log"'
+			eol-plp-failure-mode':Define EOL or PLP circuitry failure mode'
+			clear-pcie-correctable-error-counters':Clear PCIe correctable error counters'
+			vs-fw-activate-history':Get firmware activation history log'
+			device-capability-log':Get Device capability log'
+			set-dssd-power-state-feature':Set DSSD Power State'
+			get-dssd-power-state-feature':Get DSSD Power State'
+			telemetry-string-log':Retrieve Telemetry string Log Page'
+			set-telemetry-profile':Set Telemetry Profile'
+			)
+			_arguments '*:: :->subcmds'
+			_describe -t commands "nvme ocp options" _ocp
+			;;
 		(help)
 			local _h
 			_h=( id-ctrl id-ns list-ns id-iocs create-ns delete-ns attach-ns detach-ns
@@ -994,7 +1208,7 @@ _nvme () {
 				 pred-lat-event-agg-log nvm-id-ctrl endurance-event-agg-log lba-status-log
 				 resv-notif-log capacity-mgmt id-domain boot-part-log fid-support-effects-log
 				 supported-log-pages lockdown media-unit-stat-log id-ns-lba-format nvm-id-ns
-				 nvm-id-ns-lba-format supported-cap-config-log show-topology
+				 nvm-id-ns-lba-format supported-cap-config-log show-topology ocp
 			   )
 			_arguments '*:: :->subcmds'
 			_describe -t commands "help: infos on a specific nvme command, or provide no option to see a synopsis of all nvme commands" _h

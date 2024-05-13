@@ -1,5 +1,5 @@
 '\" t
-.\"     Title: nvme-ocp-latency-monitor-log
+.\"     Title: nvme-ocp-eol-plp-failure-mode
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
 .\"      Date: 05/03/2024
@@ -7,7 +7,7 @@
 .\"    Source: NVMe
 .\"  Language: English
 .\"
-.TH "NVME\-OCP\-LATENCY\-" "1" "05/03/2024" "NVMe" "NVMe Manual"
+.TH "NVME\-OCP\-EOL\-PLP\" "1" "05/03/2024" "NVMe" "NVMe Manual"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,29 +28,87 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-nvme-ocp-latency-monitor-log \- Display latency monitor log page data in human readable format
+nvme-ocp-eol-plp-failure-mode \- Define and print EOL or PLP circuitry failure mode
 .SH "SYNOPSIS"
 .sp
 .nf
-\fInvme ocp latency\-monitor\-log\fR <device> [\-\-output\-format=<fmt> | \-o <fmt>]
+\fInvme ocp eol\-plp\-failure\-mode\fR <device> [\-\-mode=<mode> | \-m <mode>]
+                        [\-\-no\-uuid | \-n] [\-\-save | \-s]
+                        [\-\-sel=<select> | \-s <select>]
 .fi
 .SH "DESCRIPTION"
 .sp
-For the NVMe device given, latency monitor log page data\&.
+Define EOL or PLP circuitry failure mode\&. No argument prints current mode\&.
 .sp
 The <device> parameter is mandatory and may be either the NVMe character device (ex: /dev/nvme0) or block device (ex: /dev/nvme0n1)\&.
 .sp
-This will only work on OCP compliant devices supporting this log page\&. Results for any other device are undefined\&.
+This will only work on OCP compliant devices supporting this feature\&. Results for any other device are undefined\&.
 .sp
 On success it returns 0, error code otherwise\&.
 .SH "OPTIONS"
 .PP
-\-o <fmt>, \-\-output\-format=<fmt>
+\-m <mode>, \-\-mode=<mode>
 .RS 4
-Set the reporting format to
-\fInormal\fR
+Set the EOL or PLP circuitry failure mode to [0\-3] (\fI0: default\fR,
+\fI1: rom\fR,
+\fI2: wtm\fR
 or
-\fIjson\fR\&. Only one output format can be used at a time\&. The default is normal\&.
+\fI3: normal\fR)\&. Only one mode can be used at a time\&. The default is rom\&.
+.RE
+.PP
+\-n, \-\-no\-uuid
+.RS 4
+Do not try to automatically detect UUID index for this command (required for old OCP 1\&.0 support)
+.RE
+.PP
+\-s, \-\-save
+.RS 4
+Save the attribute so that it persists through all power states and resets\&.
+.RE
+.PP
+\-s <select>, \-\-sel=<select>
+.RS 4
+Select (SEL): This field specifies which value of the attributes to return in the provided data:
+.TS
+allbox tab(:);
+lt lt
+lt lt
+lt lt
+lt lt
+lt lt
+lt lt.
+T{
+Select
+T}:T{
+Description
+T}
+T{
+0
+T}:T{
+Current
+T}
+T{
+1
+T}:T{
+Default
+T}
+T{
+2
+T}:T{
+Saved
+T}
+T{
+3
+T}:T{
+Supported capabilities
+T}
+T{
+4\-7
+T}:T{
+Reserved
+T}
+.TE
+.sp 1
 .RE
 .SH "EXAMPLES"
 .sp
@@ -62,13 +120,13 @@ or
 .sp -1
 .IP \(bu 2.3
 .\}
-Displays the get latency monitor log for the device:
+Has the program issue a eol\-plp\-failure\-mode to retrieve the 0xC2 get features\&.
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-# nvme ocp latency\-monitor\-log /dev/nvme0
+# nvme ocp eol\-plp\-failure\-mode /dev/nvme0
 .fi
 .if n \{\
 .RE
