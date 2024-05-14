@@ -13,19 +13,6 @@ const unsigned char ocp_uuid[NVME_UUID_LEN] = {
 	0xc1, 0x94, 0xd5, 0x5b, 0xe0, 0x94, 0x47, 0x94, 0xa2, 0x1d,
 	0x29, 0x99, 0x8f, 0x56, 0xbe, 0x6f };
 
-int ocp_find_uuid_index(struct nvme_id_uuid_list *uuid_list, __u8 *index)
-{
-	int i = nvme_uuid_find(uuid_list, ocp_uuid);
-
-	*index = 0;
-	if (i > 0)
-		*index = i;
-	else
-		return -errno;
-
-	return 0;
-}
-
 int ocp_get_uuid_index(struct nvme_dev *dev, __u8 *index)
 {
 	struct nvme_id_uuid_list uuid_list;
@@ -35,5 +22,11 @@ int ocp_get_uuid_index(struct nvme_dev *dev, __u8 *index)
 	if (err)
 		return err;
 
-	return ocp_find_uuid_index(&uuid_list, index);
+	for (int i = 0; i < NVME_ID_UUID_LIST_MAX; i++) {
+		if (memcmp(ocp_uuid, &uuid_list.entry[i].uuid, NVME_UUID_LEN) == 0) {
+			*index = i + 1;
+			break;
+		}
+	}
+	return err;
 }

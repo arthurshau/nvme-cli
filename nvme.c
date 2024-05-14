@@ -408,7 +408,7 @@ static int get_dev(struct nvme_dev **dev, int argc, char **argv, int flags)
 
 int parse_and_open(struct nvme_dev **dev, int argc, char **argv,
 		   const char *desc,
-		   const struct argconfig_commandline_options *opts)
+		   struct argconfig_commandline_options *opts)
 {
 	int ret;
 

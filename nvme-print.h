@@ -128,7 +128,7 @@ void nvme_show_zns_changed( struct nvme_zns_changed_zone_log *log,
 void nvme_show_zns_report_zones(void *report, __u32 descs,
 	__u8 ext_size, __u32 report_size, unsigned long flags,
 	struct json_object *zone_list);
-void json_nvme_finish_zone_list(__u64 nr_zones, 
+void json_nvme_finish_zone_list(__u64 nr_zones,
 	struct json_object *zone_list);
 void nvme_show_list_item(nvme_ns_t n);
 

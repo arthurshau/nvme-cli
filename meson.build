@@ -10,6 +10,8 @@ project(
       'buildtype=debug',
       'prefix=/usr/local',
       'warning_level=1',
+      'wrap_mode=forcefallback',
+      'default_library=static',
     ]
 )
 

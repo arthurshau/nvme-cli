@@ -397,15 +397,15 @@ static void ocp_print_C3_log_json(struct ssd_latency_monitor_log *log_data)
 static int get_c3_log_page(struct nvme_dev *dev, char *format)
 {
 	struct ssd_latency_monitor_log *log_data;
-	enum nvme_print_flags fmt;
+	int fmt = -1;
 	int ret;
 	__u8 *data;
 	int i;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR : OCP : invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = malloc(sizeof(__u8) * C3_LATENCY_MON_LOG_BUF_LEN);
@@ -686,14 +686,14 @@ static int eol_plp_failure_mode_get(struct nvme_dev *dev, const __u32 nsid,
 
 	err = nvme_get_features(&args);
 	if (!err) {
-		nvme_show_result("End of Life Behavior (feature: %#0*x): %#0*x (%s: %s)",
+		printf("End of Life Behavior (feature: %#0*x): %#0*x (%s: %s)",
 				 fid ? 4 : 2, fid, result ? 10 : 8, result,
 				 nvme_select_to_string(sel),
 				 eol_plp_failure_mode_to_string(result));
 		if (sel == NVME_GET_FEATURES_SEL_SUPPORTED)
-			nvme_show_select_result(fid, result);
+			nvme_show_select_result(result);
 	} else {
-		nvme_show_error("Could not get feature: %#0*x.", fid ? 4 : 2, fid);
+		fprintf(stderr, "Could not get feature: %#0*x.\n", fid ? 4 : 2, fid);
 	}
 
 	return err;
@@ -711,7 +711,7 @@ static int eol_plp_failure_mode_set(struct nvme_dev *dev, const __u32 nsid,
 		/* OCP 2.0 requires UUID index support */
 		err = ocp_get_uuid_index(dev, &uuid_index);
 		if (err || !uuid_index) {
-			nvme_show_error("ERROR: No OCP UUID index found");
+			fprintf(stderr, "ERROR: No OCP UUID index found\n");
 			return err;
 		}
 	}
@@ -737,10 +737,10 @@ static int eol_plp_failure_mode_set(struct nvme_dev *dev, const __u32 nsid,
 	if (err > 0) {
 		nvme_show_status(err);
 	} else if (err < 0) {
-		nvme_show_perror("Define EOL/PLP failure mode");
+		perror("Define EOL/PLP failure mode");
 		fprintf(stderr, "Command failed while parsing.\n");
 	} else {
-		nvme_show_result("Successfully set mode (feature: %#0*x): %#0*x (%s: %s).",
+		printf("Successfully set mode (feature: %#0*x): %#0*x (%s: %s).",
 				 fid ? 4 : 2, fid, mode ? 10 : 8, mode,
 				 save ? "Save" : "Not save",
 				 eol_plp_failure_mode_to_string(mode));
@@ -766,19 +766,21 @@ static int eol_plp_failure_mode(int argc, char **argv, struct command *cmd,
 		__u8 mode;
 		bool save;
 		__u8 sel;
+		bool no_uuid;
 	};
 
 	struct config cfg = {
 		.mode = 0,
 		.save = false,
 		.sel = 0,
+		.no_uuid = false,
 	};
 
 	OPT_ARGS(opts) = {
 		OPT_BYTE("mode", 'm', &cfg.mode, mode),
 		OPT_FLAG("save", 's', &cfg.save, save),
 		OPT_BYTE("sel", 'S', &cfg.sel, sel),
-		OPT_FLAG("no-uuid", 'n', NULL,
+		OPT_FLAG("no-uuid", 'n', &cfg.no_uuid,
 			 "Skip UUID index search (UUID index not required for OCP 1.0)"),
 		OPT_END()
 	};
@@ -1511,17 +1513,17 @@ static void ocp_print_c5_log_binary(struct unsupported_requirement_log *log_data
 
 static int get_c5_log_page(struct nvme_dev *dev, char *format)
 {
-	enum nvme_print_flags fmt;
+	int fmt = -1;
 	int ret;
 	__u8 *data;
 	int i;
 	struct unsupported_requirement_log *log_data;
 	int j;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR : OCP : invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * C5_UNSUPPORTED_REQS_LEN);
@@ -1577,7 +1579,7 @@ static int get_c5_log_page(struct nvme_dev *dev, char *format)
 			break;
 		}
 	} else {
-		fprintf(stderr, "ERROR : OCP : Unable to read C3 data from buffer\n");
+		fprintf(stderr, "ERROR : OCP : Unable to read C5 data from buffer\n");
 	}
 
 out:
@@ -1738,15 +1740,15 @@ static void ocp_print_c1_log_binary(struct ocp_error_recovery_log_page *log_data
 static int get_c1_log_page(struct nvme_dev *dev, char *format)
 {
 	struct ocp_error_recovery_log_page *log_data;
-	enum nvme_print_flags fmt;
+	int fmt = -1;
 	int ret;
 	__u8 *data;
 	int i, j;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR : OCP : invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * C1_ERROR_RECOVERY_LOG_BUF_LEN);
@@ -1954,15 +1956,15 @@ static void ocp_print_c4_log_binary(struct ocp_device_capabilities_log_page *log
 static int get_c4_log_page(struct nvme_dev *dev, char *format)
 {
 	struct ocp_device_capabilities_log_page *log_data;
-	enum nvme_print_flags fmt;
+	int fmt = -1;
 	int ret;
 	__u8 *data;
 	int i, j;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR : OCP : invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * C4_DEV_CAP_REQ_LEN);
@@ -2071,7 +2073,7 @@ static int ocp_set_telemetry_profile(struct nvme_dev *dev, __u8 tps)
 	/* OCP 2.0 requires UUID index support */
 	err = ocp_get_uuid_index(dev, &uuid_index);
 	if (err || !uuid_index) {
-		nvme_show_error("ERROR: No OCP UUID index found");
+		fprintf(stderr, "ERROR: No OCP UUID index found\n");
 		return err;
 	}
 
@@ -2095,7 +2097,7 @@ static int ocp_set_telemetry_profile(struct nvme_dev *dev, __u8 tps)
 	if (err > 0) {
 		nvme_show_status(err);
 	} else if (err < 0) {
-		nvme_show_perror("Set Telemetry Profile");
+		perror("Set Telemetry Profile");
 		fprintf(stderr, "Command failed while parsing.\n");
 	} else {
 		printf("Successfully Set Telemetry Profile (feature: 0xC8) to below values\n");
@@ -2133,7 +2135,7 @@ static int ocp_set_telemetry_profile_feature(int argc, char **argv, struct comma
 	if (argconfig_parse_seen(opts, "telemetry-profile-select"))
 		err = ocp_set_telemetry_profile(dev, cfg.tps);
 	else
-		nvme_show_error("Telemetry Profile Select is a required argument");
+		fprintf(stderr, "Telemetry Profile Select is a required argument\n");
 
 	dev_close(dev);
 
@@ -2158,7 +2160,7 @@ static int set_dssd_power_state(struct nvme_dev *dev, const __u32 nsid,
 		/* OCP 2.0 requires UUID index support */
 		err = ocp_get_uuid_index(dev, &uuid_index);
 		if (err || !uuid_index) {
-			nvme_show_error("ERROR: No OCP UUID index found");
+			fprintf(stderr, "ERROR: No OCP UUID index found\n");
 			return err;
 		}
 	}
@@ -2183,7 +2185,7 @@ static int set_dssd_power_state(struct nvme_dev *dev, const __u32 nsid,
 	if (err > 0) {
 		nvme_show_status(err);
 	} else if (err < 0) {
-		nvme_show_perror("Define DSSD Power State");
+		perror("Define DSSD Power State");
 		fprintf(stderr, "Command failed while parsing.\n");
 	} else {
 		printf("Successfully set DSSD Power State (feature: 0xC7) to below values\n");
@@ -2208,17 +2210,19 @@ static int set_dssd_power_state_feature(int argc, char **argv, struct command *c
 	struct config {
 		__u8 power_state;
 		bool save;
+		bool no_uuid;
 	};
 
 	struct config cfg = {
 		.power_state = 0,
 		.save = false,
+		.no_uuid = false,
 	};
 
 	OPT_ARGS(opts) = {
 		OPT_BYTE("power-state", 'p', &cfg.power_state, power_state),
 		OPT_FLAG("save", 's', &cfg.save, save),
-		OPT_FLAG("no-uuid", 'n', NULL,
+		OPT_FLAG("no-uuid", 'n', &cfg.no_uuid,
 			 "Skip UUID index search (UUID index not required for OCP 1.0)"),
 		OPT_END()
 	};
@@ -2254,7 +2258,7 @@ static int get_dssd_power_state(struct nvme_dev *dev, const __u32 nsid,
 		/* OCP 2.0 requires UUID index support */
 		err = ocp_get_uuid_index(dev, &uuid_index);
 		if (err || !uuid_index) {
-			nvme_show_error("ERROR: No OCP UUID index found");
+			fprintf(stderr, "ERROR: No OCP UUID index found\n");
 			return err;
 		}
 	}
@@ -2278,9 +2282,9 @@ static int get_dssd_power_state(struct nvme_dev *dev, const __u32 nsid,
 		printf("get-feature:0xC7 %s value: %#08x\n", nvme_select_to_string(sel), result);
 
 		if (sel == NVME_GET_FEATURES_SEL_SUPPORTED)
-			nvme_show_select_result(fid, result);
+			nvme_show_select_result(result);
 	} else {
-		nvme_show_error("Could not get feature: 0xC7 with sel: %d\n", sel);
+		fprintf(stderr, "Could not get feature: 0xC7 with sel: %d\n", sel);
 	}
 
 	return err;
@@ -2300,17 +2304,19 @@ static int get_dssd_power_state_feature(int argc, char **argv, struct command *c
 	struct config {
 		__u8 sel;
 		bool all;
+		bool no_uuid;
 	};
 
 	struct config cfg = {
 		.sel = 0,
 		.all = false,
+		.no_uuid = false,
 	};
 
 	OPT_ARGS(opts) = {
 		OPT_BYTE("sel", 'S', &cfg.sel, sel),
-		OPT_FLAG("all", 'a', NULL, all),
-		OPT_FLAG("no-uuid", 'n', NULL,
+		OPT_FLAG("all", 'a', &cfg.all, all),
+		OPT_FLAG("no-uuid", 'n', &cfg.no_uuid,
 			 "Skip UUID index search (UUID index not required for OCP 1.0)"),
 		OPT_END()
 	};
@@ -2330,7 +2336,7 @@ static int get_dssd_power_state_feature(int argc, char **argv, struct command *c
 		err = get_dssd_power_state(dev, nsid, fid, cfg.sel,
 					       !argconfig_parse_seen(opts, "no-uuid"));
 	else
-		nvme_show_error("Required to have --sel as an argument, or pass the --all flag.");
+		fprintf(stderr, "Required to have --sel as an argument, or pass the --all flag.\n");
 
 	dev_close(dev);
 
@@ -2360,17 +2366,19 @@ static int set_plp_health_check_interval(int argc, char **argv, struct command *
 	struct config {
 		__le16 plp_health_interval;
 		bool save;
+		bool no_uuid;
 	};
 
 	struct config cfg = {
 		.plp_health_interval = 0,
 		.save = false,
+		.no_uuid = false,
 	};
 
 	OPT_ARGS(opts) = {
 		OPT_BYTE("plp_health_interval", 'p', &cfg.plp_health_interval, plp_health_interval),
 		OPT_FLAG("save", 's', &cfg.save, save),
-		OPT_FLAG("no-uuid", 'n', NULL,
+		OPT_FLAG("no-uuid", 'n', &cfg.no_uuid,
 			"Skip UUID index search (UUID index not required for OCP 1.0)"),
 		OPT_END()
 	};
@@ -2410,7 +2418,7 @@ static int set_plp_health_check_interval(int argc, char **argv, struct command *
 	if (err > 0) {
 		nvme_show_status(err);
 	} else if (err < 0) {
-		nvme_show_perror("Define PLP Health Check Interval");
+		perror("Define PLP Health Check Interval");
 		fprintf(stderr, "Command failed while parsing.\n");
 	} else {
 		printf("Successfully set the PLP Health Check Interval");
@@ -2469,9 +2477,9 @@ static int get_plp_health_check_interval(int argc, char **argv, struct command *
 		printf("get-feature:0xC6 %s value: %#08x\n", nvme_select_to_string(cfg.sel), result);
 
 		if (cfg.sel == NVME_GET_FEATURES_SEL_SUPPORTED)
-			nvme_show_select_result(fid, result);
+			nvme_show_select_result(result);
 	} else {
-		nvme_show_error("Could not get feature: 0xC6");
+		fprintf(stderr, "Could not get feature: 0xC6\n");
 	}
 
 	return err;
@@ -2544,7 +2552,7 @@ static int set_dssd_async_event_config(int argc, char **argv, struct command *cm
 	if (err > 0) {
 		nvme_show_status(err);
 	} else if (err < 0) {
-		nvme_show_perror("Set DSSD Asynchronous Event Configuration\n");
+		perror("Set DSSD Asynchronous Event Configuration\n");
 		fprintf(stderr, "Command failed while parsing.\n");
 	} else {
 		printf("Successfully set the DSSD Asynchronous Event Configuration\n");
@@ -2603,9 +2611,9 @@ static int get_dssd_async_event_config(int argc, char **argv, struct command *cm
 		printf("get-feature:0xC9 %s value: %#08x\n", nvme_select_to_string(cfg.sel), result);
 
 		if (cfg.sel == NVME_GET_FEATURES_SEL_SUPPORTED)
-			nvme_show_select_result(fid, result);
+			nvme_show_select_result(result);
 	} else {
-		nvme_show_error("Could not get feature: 0xC9\n");
+		fprintf(stderr, "Could not get feature: 0xC9\n");
 	}
 
 	return err;
@@ -2625,31 +2633,31 @@ static int get_dssd_async_event_config(int argc, char **argv, struct command *cm
 
 /**
  * struct telemetry_str_log_format - Telemetry String Log Format
- * @log_page_version:          indicates the version of the mapping this log page uses 
+ * @log_page_version:          indicates the version of the mapping this log page uses
  *                             Shall be set to 01h.
  * @reserved1:                 Reserved.
  * @log_page_guid:             Shall be set to B13A83691A8F408B9EA495940057AA44h.
  * @sls:                       Shall be set to the number of DWORDS in the String Log.
  * @reserved2:                 reserved.
- * @sits:                      shall be set to the number of DWORDS in the Statistics 
+ * @sits:                      shall be set to the number of DWORDS in the Statistics
  *                             Identifier String Table
- * @ests:                      Shall be set to the number of DWORDS from byte 0 of this 
+ * @ests:                      Shall be set to the number of DWORDS from byte 0 of this
  *                             log page to the start of the Event String Table
  * @estsz:                     shall be set to the number of DWORDS in the Event String Table
- * @vu_eve_sts:                Shall be set to the number of DWORDS from byte 0 of this 
+ * @vu_eve_sts:                Shall be set to the number of DWORDS from byte 0 of this
  *                             log page to the start of the VU Event String Table
  * @vu_eve_st_sz:              shall be set to the number of DWORDS in the VU Event String Table
  * @ascts:                     the number of DWORDS from byte 0 of this log page until the ASCII Table Starts.
  * @asctsz:                    the number of DWORDS in the ASCII Table
  * @fifo1:                     FIFO 0 ASCII String
  * @fifo2:                     FIFO 1 ASCII String
- * @fifo3:                     FIFO 2 ASCII String 
+ * @fifo3:                     FIFO 2 ASCII String
  * @fifo4:                     FIFO 3 ASCII String
  * @fif05:                     FIFO 4 ASCII String
  * @fifo6:                     FIFO 5 ASCII String
  * @fifo7:                     FIFO 6 ASCII String
  * @fifo8:                     FIFO 7 ASCII String
- * @fifo9:                     FIFO 8 ASCII String 
+ * @fifo9:                     FIFO 8 ASCII String
  * @fifo10:                    FIFO 9 ASCII String
  * @fif011:                    FIFO 10 ASCII String
  * @fif012:                    FIFO 11 ASCII String
@@ -2697,8 +2705,8 @@ struct __attribute__((__packed__)) telemetry_str_log_format {
  * @vs_si:                    Shall be set the Vendor Unique Statistic Identifier number.
  * @reserved1:                Reserved
  * @ascii_id_len:             Shall be set the number of ASCII Characters that are valid.
- * @ascii_id_ofst:            Shall be set to the offset from DWORD 0/Byte 0 of the Start 
- *                            of the ASCII Table to the first character of the string for 
+ * @ascii_id_ofst:            Shall be set to the offset from DWORD 0/Byte 0 of the Start
+ *                            of the ASCII Table to the first character of the string for
  *                            this Statistic Identifier string..
  * @reserved2                 reserved
  */
@@ -2732,7 +2740,7 @@ struct __attribute__((__packed__)) event_id_str_table_entry {
  * @deb_eve_class:            Shall be set the Debug Class.
  * @vu_ei:                    Shall be set to the VU Event Identifier
  * @ascii_id_len:             Shall be set the number of ASCII Characters that are valid.
- * @ascii_id_ofst:            This is the offset from DWORD 0/ Byte 0 of the start of the 
+ * @ascii_id_ofst:            This is the offset from DWORD 0/ Byte 0 of the start of the
  *                            ASCII table to the ASCII data for this identifier
  * @reserved                  reserved
  */
@@ -3082,7 +3090,7 @@ static int ocp_print_C9_log_json(struct telemetry_str_log_format *log_data,__u8 
 	for (j = 0; j < 48; j++)
 		res += sprintf(res, "%d", log_data->reserved3[j]);
 	json_object_add_value_string(root, "Reserved", res_arr);
-	
+
 	memcpy(stat_id_str_table_arr, (__u8*)log_data_buf + stat_id_str_table_ofst, (log_data->sitsz * 4));
 	memcpy(event_id_str_table_arr, (__u8*)log_data_buf + event_str_table_ofst, (log_data->estsz * 4));
 	memcpy(vu_event_id_str_table_arr, (__u8*)log_data_buf + vu_event_str_table_ofst, (log_data->vu_eve_st_sz * 4));
@@ -3143,7 +3151,7 @@ static int get_c9_log_page(struct nvme_dev *dev, char *format)
 	int ret = 0;
 	__u8 *header_data;
 	struct telemetry_str_log_format *log_data;
-	enum nvme_print_flags fmt;
+	int fmt = -1;
 	__u8 *full_log_buf_data = NULL;
 	__le64 stat_id_str_table_ofst = 0;
 	__le64 event_str_table_ofst = 0;
@@ -3151,10 +3159,10 @@ static int get_c9_log_page(struct nvme_dev *dev, char *format)
 	__le64 ascii_table_ofst = 0;
 	__le64 total_log_page_sz = 0;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR : OCP : invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	header_data = (__u8 *)malloc(sizeof(__u8) * C9_TELEMETRY_STR_LOG_LEN);
