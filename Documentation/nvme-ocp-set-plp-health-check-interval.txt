@@ -1,4 +1,4 @@
-nvme-ocp-set-plp-health-check-interval(1)
+set-plp-health-check-interval(1)
 ================================
 
 NAME
